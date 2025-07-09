@@ -12,7 +12,7 @@ use crate::machine::{
 };
 use crate::machine_arm64::MachineARM64;
 #[cfg(feature = "riscv")]
-use crate::machine_riscv::MachineRiscv;
+use crate::machine_riscv::{MachineRiscv, AssemblerRiscv};
 use crate::machine_x64::MachineX86_64;
 #[cfg(feature = "unwind")]
 use crate::unwind::{create_systemv_cie, UnwindFrame};
@@ -228,7 +228,7 @@ impl Compiler for SinglepassCompiler {
                             generator.feed_operator(op)?;
                         }
 
-                        generator.finalize(input)
+                        generator.finalize_for_challenge(input)
                     }
                     _ => unimplemented!(),
                 }

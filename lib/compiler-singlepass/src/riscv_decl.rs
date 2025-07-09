@@ -11,8 +11,43 @@ use wasmer_types::{CompileError, Type};
 /// General-purpose registers.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[allow(clippy::upper_case_acronyms)]
+#[allow(unused)]
 pub enum GPR {
-    // TODO: define integer registers X0-X31.
+    X0 = 0,
+    X1 = 1,
+    /// Stack pointer
+    X2 = 2,
+    X3 = 3,
+    X4 = 4,
+    X5 = 5,
+    X6 = 6,
+    X7 = 7,
+    /// Frame pointer
+    X8 = 8,
+    X9 = 9,
+    X10 = 10,
+    X11 = 11,
+    X12 = 12,
+    X13 = 13,
+    X14 = 14,
+    X15 = 15,
+    X16 = 16,
+    X17 = 17,
+    X18 = 18,
+    X19 = 19,
+    X20 = 20,
+    X21 = 21,
+    X22 = 22,
+    X23 = 23,
+    X24 = 24,
+    X25 = 25,
+    X26 = 26,
+    /// vmctx pointer
+    X27 = 27,
+    X28 = 28,
+    X29 = 29,
+    X30 = 30,
+    X31 = 31,
 }
 
 /// Floating-point registers.
@@ -124,7 +159,7 @@ impl ArgumentRegisterAllocator {
 pub fn new_machine_state() -> MachineState {
     MachineState {
         stack_values: vec![],
-        register_values: vec![MachineValue::Undefined; /* GPR+FPR count */ 0],
+        register_values: vec![MachineValue::Undefined; /* GPR+FPR count */ 32 + 0 ], // TODO(challenge): FPR not implemented at the moment
         prev_frame: BTreeMap::new(),
         wasm_stack: vec![],
         wasm_inst_offset: usize::MAX,

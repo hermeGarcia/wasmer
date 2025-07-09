@@ -10,7 +10,8 @@ pub use crate::{
     riscv_decl::{FPR, GPR},
 };
 use dynasm::dynasm;
-use dynasmrt::{AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
+use dynasmrt::riscv::RiscvRelocation;
+use dynasmrt::{AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, VecAssembler};
 use wasmer_types::{target::CpuFeature, CompileError};
 
 /// Force `dynasm!` to use the correct arch (riscv64) when cross-compiling.
@@ -23,6 +24,8 @@ macro_rules! dynasm {
         )
     };
 }
+
+type Assembler = VecAssembler<RiscvRelocation>;
 
 /// Location abstraction specialized to RISC-V.
 pub type Location = AbstractLocation<GPR, FPR>;
@@ -49,4 +52,26 @@ pub trait EmitterRiscv {
     fn finalize_function(&mut self) -> Result<(), CompileError>;
 
     // TODO: add methods for emitting RISC-V instructions (e.g., loads, stores, arithmetic, branches, etc.)
+}
+
+impl EmitterRiscv  for Assembler {
+    fn get_simd_arch(&self) -> Option<&CpuFeature> {
+        todo!()
+    }
+
+    fn get_label(&mut self) -> Label {
+        todo!()
+    }
+
+    fn get_offset(&self) -> Offset {
+        self.offset()
+    }
+
+    fn get_jmp_instr_size(&self) -> u8 {
+        todo!()
+    }
+
+    fn finalize_function(&mut self) -> Result<(), CompileError> {
+        todo!()
+    }
 }

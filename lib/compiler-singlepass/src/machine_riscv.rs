@@ -1,5 +1,5 @@
 //! RISC-V machine scaffolding.
-
+//! 
 use dynasmrt::{riscv::RiscvRelocation, DynasmError, VecAssembler};
 #[cfg(feature = "unwind")]
 use gimli::{write::CallFrameInstruction, RiscV};
@@ -144,28 +144,56 @@ enum ImmType {
 #[allow(dead_code)]
 impl MachineRiscv {
     // TODO: helper functions for RISC-V immediates and addressing.
+
+    fn used_gprs_contains(&self, r: &GPR) -> bool {
+        self.used_gprs & (1 << r.into_index()) != 0
+    }
+
+    fn used_gprs_insert(&mut self, r: GPR) {
+        self.used_gprs |= 1 << r.into_index();
+    }
+
+    fn used_gprs_remove(&mut self, r: &GPR) -> bool {
+        let ret = self.used_gprs_contains(r);
+        self.used_gprs &= !(1 << r.into_index());
+        ret
+    }
 }
 
 impl Machine for MachineRiscv {
     type GPR = GPR;
     type SIMD = FPR;
     fn assembler_get_offset(&self) -> Offset {
-        todo!()
+        self.assembler.get_offset()
     }
     fn index_from_gpr(&self, x: Self::GPR) -> RegisterIndex {
-        todo!()
+        RegisterIndex(x as usize)
     }
     fn index_from_simd(&self, x: Self::SIMD) -> RegisterIndex {
         todo!()
     }
     fn get_vmctx_reg(&self) -> Self::GPR {
-        todo!()
+        GPR::X27
     }
     fn pick_gpr(&self) -> Option<Self::GPR> {
-        todo!()
+        use GPR::*;
+        static REGS: &[GPR] = &[X26, X25, X24, X23, X22, X21, X20, X19, X18];
+        for r in REGS {
+            if !self.used_gprs_contains(r) {
+                return Some(*r);
+            }
+        }
+        None
     }
     fn pick_temp_gpr(&self) -> Option<Self::GPR> {
-        todo!()
+        use GPR::*;
+        static REGS: &[GPR] = &[X17, X16, X15, X14, X13, X12];
+        for r in REGS {
+            if !self.used_gprs_contains(r) {
+                return Some(*r);
+            }
+        }
+        None
     }
     fn get_used_gprs(&self) -> Vec<Self::GPR> {
         todo!()
@@ -177,13 +205,13 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn release_gpr(&mut self, gpr: Self::GPR) {
-        todo!()
+        assert!(self.used_gprs_remove(&gpr));
     }
     fn reserve_unused_temp_gpr(&mut self, gpr: Self::GPR) -> Self::GPR {
         todo!()
     }
     fn reserve_gpr(&mut self, gpr: Self::GPR) {
-        todo!()
+        self.used_gprs_insert(gpr);
     }
     fn push_used_gpr(&mut self, grps: &[Self::GPR]) -> Result<usize, CompileError> {
         todo!()
@@ -213,10 +241,17 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn round_stack_adjust(&self, value: usize) -> usize {
-        todo!()
+        // RiscV calling convention states that the stack pointer
+        // must be kept 16-byte aligned.
+
+        if value & 0xf != 0 {
+            ((value >> 4) + 1) << 4
+        } else {
+            value
+        }
     }
     fn set_srcloc(&mut self, offset: u32) {
-        todo!()
+        // TODO(challenge)
     }
     fn mark_address_range_with_trap_code(&mut self, code: TrapCode, begin: usize, end: usize) {
         todo!()
@@ -231,19 +266,28 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn insert_stackoverflow(&mut self) {
-        todo!()
+        // TODO(challenge)
     }
     fn collect_trap_information(&self) -> Vec<TrapInformation> {
-        todo!()
+        self.trap_table
+            .offset_to_code
+            .clone()
+            .into_iter()
+            .map(|(offset, code)| TrapInformation {
+                code_offset: offset as u32,
+                trap_code: code,
+            })
+            .collect()
     }
     fn instructions_address_map(&self) -> Vec<InstructionAddressMap> {
-        todo!()
+        self.instructions_address_map.clone()
     }
     fn local_on_stack(&mut self, stack_offset: i32) -> Location {
         todo!()
     }
     fn adjust_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
-        todo!()
+        // TODO(challenge)
+        Ok(())
     }
     fn restore_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
         todo!()
@@ -255,7 +299,7 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn local_pointer(&self) -> Self::GPR {
-        todo!()
+        GPR::X8
     }
     fn move_location_for_native(
         &mut self,
@@ -266,16 +310,32 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn is_local_on_stack(&self, idx: usize) -> bool {
-        todo!()
+        idx > 8
     }
     fn get_local_location(&self, idx: usize, callee_saved_regs_size: usize) -> Location {
-        todo!()
+        // TODO(challenge): double-check this because I am not sure its right.
+        // Use callee-saved registers for the first locals.
+        match idx {
+            0 => Location::GPR(GPR::X18),
+            1 => Location::GPR(GPR::X19),
+            2 => Location::GPR(GPR::X20),
+            3 => Location::GPR(GPR::X21),
+            4 => Location::GPR(GPR::X22),
+            5 => Location::GPR(GPR::X23),
+            6 => Location::GPR(GPR::X24),
+            7 => Location::GPR(GPR::X25),
+            8 => Location::GPR(GPR::X26),
+            _ => Location::Memory(GPR::X8, -(((idx - 8) * 8 + callee_saved_regs_size) as i32)),
+        }
     }
-    fn move_local(&mut self, stack_offset: i32, location: Location) -> Result<(), CompileError> {
-        todo!()
+    fn move_local(&mut self, _stack_offset: i32, _location: Location) -> Result<(), CompileError> {
+        // TODO(challenge): atually implement this.
+        Ok(())
     }
-    fn list_to_save(&self, calling_convention: CallingConvention) -> Vec<Location> {
-        todo!()
+    fn list_to_save(&self, _calling_convention: CallingConvention) -> Vec<Location> {
+        // TODO(challenge): check if there are registers that must be saved.
+        // TODO(challenge): also, is this registers to save as a callee?
+        vec![]
     }
     fn get_param_location(
         &self,
@@ -289,26 +349,50 @@ impl Machine for MachineRiscv {
     fn get_call_param_location(
         &self,
         idx: usize,
-        sz: Size,
+        _sz: Size,
         stack_offset: &mut usize,
-        calling_convention: CallingConvention,
+        // TODO(challenge): calling conventions are ignored at this stage.
+        _calling_convention: CallingConvention,
     ) -> Location {
-        todo!()
+        match idx {
+            0 => Location::GPR(GPR::X12),
+            1 => Location::GPR(GPR::X13),
+            2 => Location::GPR(GPR::X14),
+            3 => Location::GPR(GPR::X15),
+            4 => Location::GPR(GPR::X16),
+            5 => Location::GPR(GPR::X17),
+            _ => {
+                let loc = Location::Memory(GPR::X8, 16 * 2 + *stack_offset as i32);
+                *stack_offset += 8;
+                loc
+            }
+        }
     }
+    
     fn get_simple_param_location(
         &self,
         idx: usize,
-        calling_convention: CallingConvention,
+        _calling_convention: CallingConvention,
     ) -> Location {
-        todo!()
+         match idx {
+            0 => Location::GPR(GPR::X12),
+            1 => Location::GPR(GPR::X13),
+            2 => Location::GPR(GPR::X14),
+            3 => Location::GPR(GPR::X15),
+            4 => Location::GPR(GPR::X16),
+            5 => Location::GPR(GPR::X17),
+            _ =>  Location::Memory(GPR::X8, (16 * 2 + (idx - 6) * 8) as i32),
+        }
     }
+
     fn move_location(
         &mut self,
         size: Size,
         source: Location,
         dest: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        // TODO(challenge): Actually implement this operation
+        Ok(())
     }
     fn move_location_extend(
         &mut self,
@@ -318,7 +402,8 @@ impl Machine for MachineRiscv {
         size_op: Size,
         dest: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        // TODO(challenge): Actually implement this operation
+        Ok(())
     }
     fn load_address(
         &mut self,
@@ -336,28 +421,42 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn restore_saved_area(&mut self, saved_area_offset: i32) -> Result<(), CompileError> {
-        todo!()
+        // TODO(challenge)
+        Ok(())
     }
     fn pop_location(&mut self, location: Location) -> Result<(), CompileError> {
-        todo!()
+        // TODO(challenge)
+        Ok(())
     }
     fn new_machine_state(&self) -> MachineState {
-        todo!()
+        new_machine_state()
     }
-    fn assembler_finalize(self) -> Result<Vec<u8>, CompileError> {
-        todo!()
+    fn assembler_finalize(mut self) -> Result<Vec<u8>, CompileError> {
+        dynasm::dynasm!(
+            &mut self.assembler
+            ; .arch riscv64
+            ; addi x18, x18, 1
+            ; addi x19, x19, 2
+            ; add x10, x18, x19
+            ; ret
+        );
+
+        self.assembler.finalize().map_err(|err| CompileError::Codegen(err.to_string()))
     }
     fn get_offset(&self) -> Offset {
-        todo!()
+        self.assembler.get_offset()
     }
     fn finalize_function(&mut self) -> Result<(), CompileError> {
-        todo!()
+        // TOOD(challenge)
+        Ok(())
     }
     fn emit_function_prolog(&mut self) -> Result<(), CompileError> {
-        todo!()
+        // TODO(challenge): actually implement function prologs.
+        Ok(())
     }
     fn emit_function_epilog(&mut self) -> Result<(), CompileError> {
-        todo!()
+        // TODO(challenge): actually implement function epilog.
+        Ok(())
     }
     fn emit_function_return_value(
         &mut self,
@@ -365,7 +464,9 @@ impl Machine for MachineRiscv {
         cannonicalize: bool,
         loc: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        // TODO(challenge): this should be easy since its just moving `loc` to the return address x10-x11.
+        // TODO(challenge): for this challenge we should not worry about the value not fitting in a int addrees.
+        Ok(())
     }
     fn emit_function_return_float(&mut self) -> Result<(), CompileError> {
         todo!()
@@ -382,13 +483,15 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn emit_illegal_op(&mut self, trp: TrapCode) -> Result<(), CompileError> {
-        todo!()
+        // TODO(challenge)
+        Ok(())
     }
     fn get_label(&mut self) -> Label {
-        todo!()
+        self.assembler.new_dynamic_label()
     }
     fn emit_label(&mut self, label: Label) -> Result<(), CompileError> {
-        todo!()
+        // TODO(challenge)
+        Ok(())
     }
     fn get_grp_for_call(&self) -> Self::GPR {
         todo!()
@@ -527,7 +630,8 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn emit_ret(&mut self) -> Result<(), CompileError> {
-        todo!()
+        // TODO(challenge)
+        Ok(())
     }
     fn emit_push(&mut self, size: Size, loc: Location) -> Result<(), CompileError> {
         todo!()
@@ -541,7 +645,8 @@ impl Machine for MachineRiscv {
         src: Location,
         dst: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        // TODO(challenge)
+        Ok(())
     }
     fn emit_relaxed_cmp(
         &mut self,
@@ -586,7 +691,8 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        // TODO(challenge)
+        Ok(())
     }
     fn emit_binop_sub32(
         &mut self,
@@ -2516,7 +2622,10 @@ impl Machine for MachineRiscv {
         sig: &FunctionType,
         calling_convention: CallingConvention,
     ) -> Result<FunctionBody, CompileError> {
-        todo!()
+        Ok(FunctionBody { 
+            body: vec![], 
+            unwind_info: None 
+        })
     }
     fn gen_std_dynamic_import_trampoline(
         &self,

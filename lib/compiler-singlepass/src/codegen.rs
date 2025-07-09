@@ -6753,4 +6753,86 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         }
     }
     */
+
+
+
+    pub fn finalize_for_challenge(
+        self,
+        data: &FunctionBodyData,
+    ) -> Result<(CompiledFunction, Option<UnwindFrame>), CompileError> {
+        // Generate actual code for special labels.
+        // self.machine
+        //     .emit_label(self.special_labels.integer_division_by_zero)?;
+        // self.machine
+        //     .emit_illegal_op(TrapCode::IntegerDivisionByZero)?;
+
+        // self.machine
+        //     .emit_label(self.special_labels.integer_overflow)?;
+        // self.machine.emit_illegal_op(TrapCode::IntegerOverflow)?;
+
+        // self.machine
+        //     .emit_label(self.special_labels.heap_access_oob)?;
+        // self.machine
+        //     .emit_illegal_op(TrapCode::HeapAccessOutOfBounds)?;
+
+        // self.machine
+        //     .emit_label(self.special_labels.table_access_oob)?;
+        // self.machine
+        //     .emit_illegal_op(TrapCode::TableAccessOutOfBounds)?;
+
+        // self.machine
+        //     .emit_label(self.special_labels.indirect_call_null)?;
+        // self.machine.emit_illegal_op(TrapCode::IndirectCallToNull)?;
+
+        // self.machine.emit_label(self.special_labels.bad_signature)?;
+        // self.machine.emit_illegal_op(TrapCode::BadSignature)?;
+
+        // self.machine
+        //     .emit_label(self.special_labels.unaligned_atomic)?;
+        // self.machine.emit_illegal_op(TrapCode::UnalignedAtomic)?;
+
+        // // Notify the assembler backend to generate necessary code at end of function.
+        // self.machine.finalize_function()?;
+
+        // let body_len = self.machine.assembler_get_offset().0;
+
+        // let mut unwind_info = None;
+        // let mut fde = None;
+        // #[cfg(feature = "unwind")]
+        // match self.calling_convention {
+        //     CallingConvention::SystemV | CallingConvention::AppleAarch64 => {
+        //         let unwind = self.machine.gen_dwarf_unwind_info(body_len);
+        //         if let Some(unwind) = unwind {
+        //             fde = Some(unwind.to_fde(Address::Symbol {
+        //                 symbol: WriterRelocate::FUNCTION_SYMBOL,
+        //                 addend: self.fsm.local_function_id as _,
+        //             }));
+        //             unwind_info = Some(CompiledFunctionUnwindInfo::Dwarf);
+        //         }
+        //     }
+        //     CallingConvention::WindowsFastcall => {
+        //         let unwind = self.machine.gen_windows_unwind_info(body_len);
+        //         if let Some(unwind) = unwind {
+        //             unwind_info = Some(CompiledFunctionUnwindInfo::WindowsX64(unwind));
+        //         }
+        //     }
+        //     _ => (),
+        // };
+
+        let body_len = self.machine.assembler_get_offset().0;
+        let address_map =
+            get_function_address_map(self.machine.instructions_address_map(), data, body_len);
+        let traps = self.machine.collect_trap_information();
+        let mut body = self.machine.assembler_finalize()?;
+        body.shrink_to_fit();
+
+        Ok((
+            CompiledFunction {
+                body: FunctionBody { body, unwind_info: None },
+                relocations: self.relocations.clone(),
+                frame_info: CompiledFunctionFrameInfo { traps, address_map },
+            },
+            None,
+        ))
+    }
 }
