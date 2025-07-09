@@ -435,9 +435,9 @@ impl Machine for MachineRiscv {
         dynasm::dynasm!(
             &mut self.assembler
             ; .arch riscv64
-            ; addi x18, x18, 1
-            ; addi x19, x19, 2
-            ; add x10, x18, x19
+            ; addi a1, a1, 1
+            ; addi a2, a2, 2
+            ; add  a0, a1, a2
             ; ret
         );
 
@@ -2622,10 +2622,7 @@ impl Machine for MachineRiscv {
         sig: &FunctionType,
         calling_convention: CallingConvention,
     ) -> Result<FunctionBody, CompileError> {
-        Ok(FunctionBody { 
-            body: vec![], 
-            unwind_info: None 
-        })
+        gen_std_trampoline_riscv64(sig, calling_convention)
     }
     fn gen_std_dynamic_import_trampoline(
         &self,

@@ -12,13 +12,17 @@ pub use crate::{
 use dynasm::dynasm;
 use dynasmrt::riscv::RiscvRelocation;
 use dynasmrt::{AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, VecAssembler};
-use wasmer_types::{target::CpuFeature, CompileError};
+
+use wasmer_compiler::types::function::FunctionBody;
+use wasmer_types::FunctionType;
+use wasmer_types::CompileError;
+use wasmer_types::target::{CpuFeature, CallingConvention};
 
 /// Force `dynasm!` to use the correct arch (riscv64) when cross-compiling.
 macro_rules! dynasm {
     ($a:expr ; $($tt:tt)*) => {
         dynasm::dynasm!(
-            $a.inner
+            $a
             ; .arch riscv64
             ; $($tt)*
         )
@@ -74,4 +78,42 @@ impl EmitterRiscv  for Assembler {
     fn finalize_function(&mut self) -> Result<(), CompileError> {
         todo!()
     }
+}
+
+
+pub fn gen_std_trampoline_riscv64(
+    sig: &FunctionType,
+    calling_convention: CallingConvention,
+) -> Result<FunctionBody, CompileError> {
+    let mut assembler = Assembler::new(0);
+
+
+    let fptr = GPR::X8;
+    let args = GPR::X12;
+
+    dynasm!(assembler
+        // ; addi sp, sp, -32
+        // ; sw x29, [sp]
+        // ; sw x30, [sp, 8]
+        // ; sw X(fptr as u32), [sp, 16]
+        // ; sw X(args as u32), [sp, 32]
+        // ; mv x29, sp
+        ; mv X(fptr as u32), x1
+        ; mv X(args as u32), x2
+
+        ;jalr X(fptr as u32)
+
+        // ; mv x28, s2
+        // ; sw a0, [s2]
+        ; jr ra
+    );
+
+
+    let mut body = assembler.finalize().unwrap();
+    body.shrink_to_fit();
+
+    Ok(FunctionBody {
+        body,
+        unwind_info: None,
+    })
 }

@@ -13,6 +13,10 @@ use wasmer::{imports, wat2wasm, Instance, Module, Store, TypedFunction, Value};
 use wasmer_compiler_singlepass::Singlepass;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    constant_function()
+}
+
+fn full_example() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_bytes = wat2wasm(
         r#"
     (module
@@ -41,7 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Option 1
     println!("Calling `sum` function...");
-    let args = [Value::I32(1), Value::I32(2)];
+    let args = [Value::I32(19), Value::I32(2)];
     let result = sum.call(&mut store, &args)?;
     println!("Results: {:?}", result);
     assert_eq!(result.to_vec(), vec![Value::I32(3)]);
@@ -50,6 +54,47 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sum_typed: TypedFunction<(i32, i32), i32> = sum.typed(&mut store)?;
     println!("Calling `sum` function (natively)...");
     let result = sum_typed.call(&mut store, 1, 2)?;
+    println!("Results: {:?}", result);
+    assert_eq!(result, 3);
+
+    Ok(())
+}
+
+fn constant_function() -> Result<(), Box<dyn std::error::Error>> {
+    let wasm_bytes = wat2wasm(
+        r#"
+(module
+  (func $const_func (result i32)
+    i32.const 3)
+  (export "const_func" (func $const_func))
+)"#
+.as_bytes(),
+    )?;
+
+    let compiler = Singlepass::default();
+    let mut store = Store::new(compiler);
+
+    println!("Compiling module...");
+    let module = Module::new(&store, wasm_bytes)?;
+
+    // Create an empty import object.
+    let import_object = imports! {};
+
+    println!("Instantiating module...");
+    let instance = Instance::new(&mut store, &module, &import_object)?;
+    let sum = instance.exports.get_function("const_func")?;
+
+    // Option 1
+    println!("Calling `const_func` function...");
+    let args = [];
+    let result = sum.call(&mut store, &args)?;
+    println!("Results: {:?}", result);
+    assert_eq!(result.to_vec(), vec![Value::I32(3)]);
+
+    // Option 2
+    let sum_typed: TypedFunction<(), i32> = sum.typed(&mut store)?;
+    println!("Calling `const_func` function (natively)...");
+    let result = sum_typed.call(&mut store)?;
     println!("Results: {:?}", result);
     assert_eq!(result, 3);
 
