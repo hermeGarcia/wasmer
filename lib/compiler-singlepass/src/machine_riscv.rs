@@ -251,7 +251,7 @@ impl Machine for MachineRiscv {
         }
     }
     fn set_srcloc(&mut self, offset: u32) {
-        // TODO(challenge)
+        self.src_loc = offset;
     }
     fn mark_address_range_with_trap_code(&mut self, code: TrapCode, begin: usize, end: usize) {
         todo!()

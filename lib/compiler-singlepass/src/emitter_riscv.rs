@@ -87,25 +87,28 @@ pub fn gen_std_trampoline_riscv64(
 ) -> Result<FunctionBody, CompileError> {
     let mut assembler = Assembler::new(0);
 
-
-    let fptr = GPR::X8;
-    let args = GPR::X12;
+    let fptr = GPR::X26;
+    let args = GPR::X27;
 
     dynasm!(assembler
-        // ; addi sp, sp, -32
-        // ; sw x29, [sp]
-        // ; sw x30, [sp, 8]
-        // ; sw X(fptr as u32), [sp, 16]
-        // ; sw X(args as u32), [sp, 32]
-        // ; mv x29, sp
-        ; mv X(fptr as u32), x1
-        ; mv X(args as u32), x2
+        ; addi sp, sp, -32
+        ; sd x8, [sp]
+        ; sd X(fptr as u32), [sp, 8]
+        ; sd X(args as u32), [sp, 16]
+        ; sd ra, [sp, 32]
+        ; mv x8, sp
+        ; mv X(fptr as u32), x13
+        ; mv X(args as u32), x14
 
-        ;jalr X(fptr as u32)
+        ; addi t1, t1,  3
+        ; mv x12, t1
 
-        // ; mv x28, s2
-        // ; sw a0, [s2]
-        ; jr ra
+        ; ld x8, [sp]
+        ; ld X(fptr as u32), [sp, 8]
+        ; ld X(args as u32), [sp, 16]
+        ; ld ra, [sp, 32]
+        ; addi sp, sp, 32
+        ; ret
     );
 
 
