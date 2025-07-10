@@ -228,7 +228,7 @@ impl Compiler for SinglepassCompiler {
                             generator.feed_operator(op)?;
                         }
 
-                        generator.finalize_for_challenge(input)
+                        generator.finalize(input)
                     }
                     _ => unimplemented!(),
                 }

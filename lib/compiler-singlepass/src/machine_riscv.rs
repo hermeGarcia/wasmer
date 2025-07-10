@@ -1,6 +1,7 @@
 //! RISC-V machine scaffolding.
-//! 
-use dynasmrt::{riscv::RiscvRelocation, DynasmError, VecAssembler};
+//!
+use dynasmrt::{riscv::RiscvRelocation, DynasmError, VecAssembler, DynasmApi};
+
 #[cfg(feature = "unwind")]
 use gimli::{write::CallFrameInstruction, RiscV};
 
@@ -176,24 +177,10 @@ impl Machine for MachineRiscv {
         GPR::X27
     }
     fn pick_gpr(&self) -> Option<Self::GPR> {
-        use GPR::*;
-        static REGS: &[GPR] = &[X26, X25, X24, X23, X22, X21, X20, X19, X18];
-        for r in REGS {
-            if !self.used_gprs_contains(r) {
-                return Some(*r);
-            }
-        }
-        None
+        todo!()
     }
     fn pick_temp_gpr(&self) -> Option<Self::GPR> {
-        use GPR::*;
-        static REGS: &[GPR] = &[X17, X16, X15, X14, X13, X12];
-        for r in REGS {
-            if !self.used_gprs_contains(r) {
-                return Some(*r);
-            }
-        }
-        None
+        todo!()
     }
     fn get_used_gprs(&self) -> Vec<Self::GPR> {
         todo!()
@@ -435,8 +422,8 @@ impl Machine for MachineRiscv {
         dynasm::dynasm!(
             &mut self.assembler
             ; .arch riscv64
-            ; addi a1, a1, 1
-            ; addi a2, a2, 2
+            ; li a1, 1
+            ; li a2, 2
             ; add  a0, a1, a2
             ; ret
         );
@@ -494,7 +481,7 @@ impl Machine for MachineRiscv {
         Ok(())
     }
     fn get_grp_for_call(&self) -> Self::GPR {
-        todo!()
+        GPR::X26
     }
     fn emit_call_register(&mut self, register: Self::GPR) -> Result<(), CompileError> {
         todo!()
@@ -2622,8 +2609,47 @@ impl Machine for MachineRiscv {
         sig: &FunctionType,
         calling_convention: CallingConvention,
     ) -> Result<FunctionBody, CompileError> {
-        gen_std_trampoline_riscv64(sig, calling_convention)
+         let mut assembler = Assembler::new(0);
+        
+        let fptr = GPR::X27;
+        let args = GPR::X26;
+
+        dynasm::dynasm!(assembler
+            ; .arch riscv64
+            
+            ; addi sp, sp, -16 // Reserving space on the stack
+            ; sd X(fptr as u32), [sp] 
+            ; sd X(args as u32), [sp, 8]
+            ; sd ra, [sp, 16] // Saving the return address
+
+            ; mv X(fptr as u32), x13 // the pointer to the function should be here, but isn't.
+            ; mv X(args as u32), x14 // The pointer to the arg list should be here, but isnt't
+
+            // Once I figure out where args and fptr pointers are, this should call the function.
+            // ; jalr X(fptr as u32) 
+
+            // Currently the function returns only one value, so it should be on a0.
+            // Commented because at the moment args does not contain a valid address. 
+            // ; sd a0, [X(args as u32)]
+
+            ; ld X(fptr as u32), [sp]
+            ; ld X(args as u32), [sp, 8]
+            ; ld ra, [sp, 16]
+    
+            ; addi sp, sp, 16 // Restore the stack
+            
+            ; ret
+
+        );
+
+        let mut body = assembler.finalize().unwrap();
+        body.shrink_to_fit();
+        Ok(FunctionBody {
+            body,
+            unwind_info: None,
+        })
     }
+
     fn gen_std_dynamic_import_trampoline(
         &self,
         vmoffsets: &VMOffsets,
@@ -2642,7 +2668,7 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn gen_dwarf_unwind_info(&mut self, code_len: usize) -> Option<UnwindInstructions> {
-        todo!()
+        None
     }
     fn gen_windows_unwind_info(&mut self, code_len: usize) -> Option<Vec<u8>> {
         todo!()
